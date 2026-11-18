@@ -1,0 +1,43 @@
+import torch
+import torch.nn as nn
+from sklearn.datasets import fetch_california_housing
+from sklearn.preprocessing import StandardScaler
+
+dispositivo = ("cuda" if torch.cuda.is_available() else "cpu")
+
+datos = fetch_california_housing()
+escalador = StandardScaler()
+
+x_real = torch.tensor(escalador.fit_transform(datos.data[:1000]), dtype=torch.float32, device=dispositivo)
+y_real = torch.tensor(datos.target[:1000], dtype=torch.float32, device=dispositivo).unsqueeze(1)
+
+modelo_casas = nn.Sequential(
+    nn.Linear(8, 32),
+    nn.ReLU(),
+    nn.Linear(32, 16),
+    nn.ReLU(),
+    nn.Linear(16, 1)
+).to(dispositivo)
+
+optimizador = torch.optim.Adam(modelo_casas.parameters(), lr=1e-3)
+criterio = nn.MSELoss()
+
+for epoca in range(1000):
+    prediccion = modelo_casas(x_real)
+    error = criterio(prediccion, y_real)
+    optimizador.zero_grad()
+    error.backward()
+    optimizador.step()
+
+# Tomamos la casa 1500 de los datos originales como prueba
+casa_nueva_raw = datos.data[1500].reshape(1, -1)
+casa_nueva_escalada = escalador.transform(casa_nueva_raw)
+casa_nueva = torch.tensor(casa_nueva_escalada, dtype=torch.float32, device=dispositivo)
+
+precio_real = datos.target[1500] * 100000  # Los precios suelen estar expresados en cientos de miles
+with torch.no_grad():
+    precio_ia = modelo_casas(casa_nueva).item() * 100000
+
+print(f"Precio REAL de la casa: ${precio_real:,.2f}")
+print(f"Precio que ADIVINÓ tu red neuronal: ${precio_ia:,.2f}") *Precio REAL de la casa: $231,400.00
+Precio que ADIVINÓ tu red neuronal: $305,573.44*
